@@ -45,7 +45,7 @@ const GeneratorForm: React.FC<GeneratorFormProps> = ({ onSubmit, isLoading, load
             <input
               required
               type="text"
-              placeholder="Ex: O impacto da IA na Educação"
+              placeholder="Ex: A cultura angolana"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               value={formData.theme}
               onChange={(e) => handleChange('theme', e.target.value)}

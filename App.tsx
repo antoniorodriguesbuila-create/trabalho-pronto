@@ -179,8 +179,8 @@ export default function App() {
     // Cria um URL temporário para o ficheiro para simular o upload
     const proofUrl = URL.createObjectURL(proofFile);
 
-    // Cria um novo pedido pendente com o preço calculado por página
-    const calculatedAmount = settings.price * (currentPaper?.request.pages || 1);
+    // Cria um novo pedido pendente com o preço calculado por página (total de páginas geradas)
+    const calculatedAmount = settings.price * (currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1);
     
     const newOrder: Order = {
       id: Math.random().toString(36).substr(2, 9),
@@ -412,13 +412,13 @@ export default function App() {
                   <p className="text-sm font-bold text-blue-900">{settings.price.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}</p>
                 </div>
                 <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm text-blue-800 font-medium">Total de páginas:</p>
-                  <p className="text-sm font-bold text-blue-900">{currentPaper?.request.pages || 1}</p>
+                  <p className="text-sm text-blue-800 font-medium">Total de páginas (inclui Sumário e Referências):</p>
+                  <p className="text-sm font-bold text-blue-900">{currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1}</p>
                 </div>
                 <div className="border-t border-blue-200 pt-2 mb-4 flex justify-between items-center">
                   <p className="text-sm text-blue-800 font-bold">Valor Total a Pagar:</p>
                   <p className="text-lg font-bold text-blue-900">
-                    {((currentPaper?.request.pages || 1) * settings.price).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+                    {((currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1) * settings.price).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
                   </p>
                 </div>
                 
