@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Mail, Lock, User as UserIcon, ArrowRight, Phone } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface AuthFormProps {
   onLogin: (user: User) => void;
@@ -22,22 +23,53 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      // Mock authentication delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (isLogin) {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
-      const role = formData.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-      const user: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: isLogin ? (formData.email.split('@')[0] || 'Utilizador') : formData.name,
-        email: formData.email,
-        role: role,
-        balance: 500 // Mock balance
-      };
-      
-      onLogin(user);
+        if (signInError) throw signInError;
+
+        if (data.user) {
+          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
+          const user: User = {
+            id: data.user.id,
+            name: data.user.user_metadata?.name || 'Utilizador',
+            email: data.user.email || '',
+            role: role,
+            balance: 500 // Mock balance
+          };
+          onLogin(user);
+        }
+      } else {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              name: formData.name,
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (data.user) {
+          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
+          const user: User = {
+            id: data.user.id,
+            name: formData.name,
+            email: data.user.email || '',
+            role: role,
+            balance: 500 // Mock balance
+          };
+          onLogin(user);
+        }
+      }
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError('Ocorreu um erro na autenticação. Verifique os seus dados e tente novamente.');
+      setError(err.message || 'Ocorreu um erro na autenticação.');
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +136,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
                 <input
                   required
                   type="password"
-                  minLength={6}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                   value={formData.password}
