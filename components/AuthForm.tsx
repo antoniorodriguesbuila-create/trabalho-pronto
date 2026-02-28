@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Mail, Lock, User as UserIcon, ArrowRight, Phone } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface AuthFormProps {
   onLogin: (user: User) => void;
@@ -16,49 +17,79 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Simulação de delay de rede
-    setTimeout(() => {
-      // Lógica de Autenticação Atualizada
-      
-      // Credenciais Admin Específicas
-      const ADMIN_EMAIL = 'bu.ila@hotmail.com';
-      const ADMIN_PASS = 'Aurio@bianca-1';
+    try {
+      if (isLogin) {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
-      if (isLogin && formData.email === ADMIN_EMAIL) {
-         if (formData.password === ADMIN_PASS) {
-             const adminUser: User = {
-                id: 'admin-001',
-                name: 'Administrador (Bu Ila)',
-                email: ADMIN_EMAIL,
-                role: 'admin',
-                balance: 0
-             };
-             onLogin(adminUser);
-         } else {
-             setError('Senha incorreta para conta administrativa.');
-             setIsLoading(false);
-             return;
-         }
-      } else {
-          // Lógica para usuários normais (cliente)
-          // Em mock, qualquer outro email/senha loga como cliente
-          const mockUser: User = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: isLogin ? 'Cliente' : formData.name,
-            email: formData.email,
-            role: 'client',
-            balance: 500 // Bónus de boas-vindas mock
+        if (signInError) throw signInError;
+
+        if (data.user) {
+          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
+          const user: User = {
+            id: data.user.id,
+            name: data.user.user_metadata?.name || 'Utilizador',
+            email: data.user.email || '',
+            role: role,
+            balance: 500 // Mock balance
           };
-          onLogin(mockUser);
+          onLogin(user);
+        }
+      } else {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              name: formData.name,
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (data.user) {
+          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
+          const user: User = {
+            id: data.user.id,
+            name: formData.name,
+            email: data.user.email || '',
+            role: role,
+            balance: 500 // Mock balance
+          };
+          onLogin(user);
+        }
       }
+    } catch (err: any) {
+      console.error('Auth error:', err);
       
+      const rawError = (err.message || err.error_description || '').toLowerCase();
+      let errorMessage = 'Ocorreu um erro na autenticação. Verifique os seus dados e tente novamente.';
+      
+      // Translate common Supabase errors
+      if (rawError.includes('invalid login credentials')) {
+        errorMessage = 'Email ou senha incorretos.';
+      } else if (rawError.includes('email not confirmed')) {
+        errorMessage = 'Por favor, confirme o seu email antes de fazer login.';
+      } else if (rawError.includes('password should be at least')) {
+        errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+      } else if (rawError.includes('rate limit')) {
+        errorMessage = 'Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.';
+      } else if (rawError.includes('user already registered')) {
+        errorMessage = 'Este email já está registado.';
+      }
+
+      setError(errorMessage);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -122,6 +153,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
                 <input
                   required
                   type="password"
+                  minLength={6}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                   value={formData.password}
