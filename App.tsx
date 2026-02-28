@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PaperRequest, GeneratedPaper, Order, OrderStatus, User, SystemSettings } from './types';
 import { generatePaperPipeline } from './services/geminiService';
 import { supabase } from './lib/supabase';
+import { uploadPaymentProof, createOrder, fetchAllOrders, fetchUserOrders, updateOrderStatus } from './services/supabaseService';
 import GeneratorForm from './components/GeneratorForm';
 import PaperPreview from './components/PaperPreview';
 import AdminDashboard from './components/AdminDashboard';
@@ -91,12 +92,32 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   
   // Admin State com Persistência
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('tp_orders');
-    return saved ? JSON.parse(saved) : MOCK_ORDERS;
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  // Carregar pedidos do Supabase
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (!user) {
+        setOrders([]);
+        return;
+      }
+      try {
+        if (user.role === 'admin') {
+          const allOrders = await fetchAllOrders();
+          setOrders(allOrders);
+        } else {
+          const userOrders = await fetchUserOrders(user.id);
+          setOrders(userOrders);
+        }
+      } catch (error) {
+        console.error("Failed to load orders", error);
+      }
+    };
+    loadOrders();
+  }, [user]);
 
   // Configurações do Sistema com Persistência
   const [settings, setSettings] = useState<SystemSettings>(() => {
@@ -123,10 +144,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('tp_isUnlocked', String(isUnlocked));
   }, [isUnlocked]);
-
-  useEffect(() => {
-    localStorage.setItem('tp_orders', JSON.stringify(orders));
-  }, [orders]);
 
   useEffect(() => {
     localStorage.setItem('tp_settings', JSON.stringify(settings));
@@ -203,41 +220,51 @@ export default function App() {
     }
   };
 
-  const handlePaymentSubmit = () => {
-    if (!user) return;
+  const handlePaymentSubmit = async () => {
+    if (!user || !currentPaper) return;
     
     if (!proofFile) {
       alert("Por favor, anexe o comprovativo de pagamento antes de enviar.");
       return;
     }
 
-    setShowPaymentModal(false);
-    
-    // Cria um URL temporário para o ficheiro para simular o upload
-    const proofUrl = URL.createObjectURL(proofFile);
+    setIsSubmittingPayment(true);
+    try {
+      // Upload do comprovativo para o Supabase Storage
+      const proofUrl = await uploadPaymentProof(proofFile, user.id);
 
-    // Cria um novo pedido pendente com o preço calculado por página (total de páginas geradas)
-    const calculatedAmount = settings.price * (currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1);
-    
-    const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9),
-      user: user.name,
-      theme: currentPaper?.title || 'Sem título',
-      date: new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: 'Pendente',
-      amount: calculatedAmount,
-      proofUrl: proofUrl
-    };
-    
-    setOrders(prev => [newOrder, ...prev]);
-    setProofFile(null); // Limpar ficheiro após envio
-    alert('Comprovativo enviado! O estado do seu pedido é agora "Pendente". Aguarde aprovação do administrador.');
+      // Cria um novo pedido pendente com o preço calculado por página
+      const calculatedAmount = settings.price * (currentPaper.content.split('<!--PAGE_BREAK-->').length);
+      
+      const newOrder = await createOrder(
+        user.id,
+        user.name,
+        currentPaper,
+        calculatedAmount,
+        proofUrl
+      );
+      
+      setOrders(prev => [newOrder, ...prev]);
+      setShowPaymentModal(false);
+      setProofFile(null);
+      alert('Comprovativo enviado! O estado do seu pedido é agora "Pendente". Aguarde aprovação do administrador.');
+    } catch (error: any) {
+      console.error(error);
+      alert('Erro ao enviar comprovativo: ' + error.message);
+    } finally {
+      setIsSubmittingPayment(false);
+    }
   };
 
   // Admin Actions
-  const handleUpdateStatus = (id: string, status: OrderStatus) => {
-    setOrders(prevOrders => prevOrders.map(o => o.id === id ? { ...o, status } : o));
-    // A lógica de desbloqueio agora é tratada pelo useEffect
+  const handleUpdateStatus = async (id: string, status: OrderStatus) => {
+    try {
+      await updateOrderStatus(id, status);
+      setOrders(prevOrders => prevOrders.map(o => o.id === id ? { ...o, status } : o));
+    } catch (error: any) {
+      console.error(error);
+      alert('Erro ao atualizar estado: ' + error.message);
+    }
   };
 
   const handleUpdateSettings = (newSettings: SystemSettings) => {
@@ -530,12 +557,12 @@ export default function App() {
               </button>
               <button 
                 onClick={handlePaymentSubmit}
-                disabled={!proofFile}
+                disabled={!proofFile || isSubmittingPayment}
                 className={`flex-1 py-2.5 text-white font-medium rounded-lg transition shadow-md
-                   ${!proofFile ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}
+                   ${(!proofFile || isSubmittingPayment) ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}
                 `}
               >
-                Enviar e Desbloquear
+                {isSubmittingPayment ? 'A enviar...' : 'Enviar e Desbloquear'}
               </button>
             </div>
           </div>

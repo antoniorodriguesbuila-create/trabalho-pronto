@@ -157,7 +157,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, onUpdateStatus,
               <div className="p-6">
                 <form onSubmit={handleSaveSettings} className="space-y-6">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Preço do Documento (Kz)</label>
+                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Preço por Página (Kz)</label>
                         <div className="relative">
                             <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">Kz</span>
                             <input

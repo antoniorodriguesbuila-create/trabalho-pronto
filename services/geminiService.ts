@@ -1,8 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { PaperRequest } from "../types";
 
-const apiKey = process.env.API_KEY || "";
-const ai = new GoogleGenAI({ apiKey });
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY || "";
+  if (!apiKey) {
+    throw new Error("A chave da API do Gemini não está configurada. Por favor, adicione a variável de ambiente GEMINI_API_KEY no Netlify.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 // Helper to clean markdown for display
 const cleanText = (text: string) => {
@@ -17,6 +22,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper function to handle API calls with exponential backoff for 429 errors
 const generateWithRetry = async (model: string, prompt: string) => {
+  const ai = getAiClient();
   let attempt = 0;
   const maxRetries = 5;
   let baseDelay = 2000;
