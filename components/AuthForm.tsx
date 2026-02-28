@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Mail, Lock, User as UserIcon, ArrowRight, Phone } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 interface AuthFormProps {
   onLogin: (user: User) => void;
@@ -23,70 +22,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      if (isLogin) {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
+      // Mock authentication delay
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-        if (signInError) throw signInError;
-
-        if (data.user) {
-          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-          const user: User = {
-            id: data.user.id,
-            name: data.user.user_metadata?.name || 'Utilizador',
-            email: data.user.email || '',
-            role: role,
-            balance: 500 // Mock balance
-          };
-          onLogin(user);
-        }
-      } else {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              name: formData.name,
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-
-        if (data.user) {
-          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-          const user: User = {
-            id: data.user.id,
-            name: formData.name,
-            email: data.user.email || '',
-            role: role,
-            balance: 500 // Mock balance
-          };
-          onLogin(user);
-        }
-      }
+      const role = formData.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
+      const user: User = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: isLogin ? (formData.email.split('@')[0] || 'Utilizador') : formData.name,
+        email: formData.email,
+        role: role,
+        balance: 500 // Mock balance
+      };
+      
+      onLogin(user);
     } catch (err: any) {
       console.error('Auth error:', err);
-      
-      const rawError = (err.message || err.error_description || '').toLowerCase();
-      let errorMessage = 'Ocorreu um erro na autenticação. Verifique os seus dados e tente novamente.';
-      
-      // Translate common Supabase errors
-      if (rawError.includes('invalid login credentials')) {
-        errorMessage = 'Email ou senha incorretos.';
-      } else if (rawError.includes('email not confirmed')) {
-        errorMessage = 'Por favor, confirme o seu email antes de fazer login.';
-      } else if (rawError.includes('password should be at least')) {
-        errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
-      } else if (rawError.includes('rate limit')) {
-        errorMessage = 'Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.';
-      } else if (rawError.includes('user already registered')) {
-        errorMessage = 'Este email já está registado.';
-      }
-
-      setError(errorMessage);
+      setError('Ocorreu um erro na autenticação. Verifique os seus dados e tente novamente.');
     } finally {
       setIsLoading(false);
     }

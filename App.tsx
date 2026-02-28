@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PaperRequest, GeneratedPaper, Order, OrderStatus, User, SystemSettings } from './types';
 import { generatePaperPipeline } from './services/geminiService';
-import { supabase } from './lib/supabase';
 import GeneratorForm from './components/GeneratorForm';
 import PaperPreview from './components/PaperPreview';
 import AdminDashboard from './components/AdminDashboard';
@@ -39,41 +38,6 @@ export default function App() {
     const saved = localStorage.getItem('tp_user');
     return saved ? JSON.parse(saved) : null;
   });
-
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const role = session.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata?.name || 'Utilizador',
-          email: session.user.email || '',
-          role: role,
-          balance: 500
-        });
-      }
-    };
-    checkSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        const role = session.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata?.name || 'Utilizador',
-          email: session.user.email || '',
-          role: role,
-          balance: 500
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
   
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
@@ -162,8 +126,7 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
     setUser(null);
     setView('home'); 
     // Nota: Não limpamos o currentPaper aqui para permitir que o utilizador
