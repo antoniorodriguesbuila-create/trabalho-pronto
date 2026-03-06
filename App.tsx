@@ -234,7 +234,10 @@ export default function App() {
       const proofUrl = await uploadPaymentProof(proofFile, user.id);
 
       // Cria um novo pedido pendente com o preço calculado por página
-      const calculatedAmount = settings.price * (currentPaper.content.split('<!--PAGE_BREAK-->').length);
+      // Cobra por todas as páginas geradas
+      const totalPages = currentPaper.content.split('<!--PAGE_BREAK-->').length;
+      const chargeablePages = Math.max(1, totalPages); // Pelo menos 1 página é cobrada
+      const calculatedAmount = settings.price * chargeablePages;
       
       const newOrder = await createOrder(
         user.id,
@@ -476,13 +479,15 @@ export default function App() {
                   <p className="text-sm font-bold text-blue-900">{settings.price.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}</p>
                 </div>
                 <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm text-blue-800 font-medium">Total de páginas (inclui Sumário e Referências):</p>
-                  <p className="text-sm font-bold text-blue-900">{currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1}</p>
+                  <p className="text-sm text-blue-800 font-medium">Páginas a cobrar (Total de páginas geradas):</p>
+                  <p className="text-sm font-bold text-blue-900">
+                    {currentPaper ? Math.max(1, currentPaper.content.split('<!--PAGE_BREAK-->').length) : 1}
+                  </p>
                 </div>
                 <div className="border-t border-blue-200 pt-2 mb-4 flex justify-between items-center">
                   <p className="text-sm text-blue-800 font-bold">Valor Total a Pagar:</p>
                   <p className="text-lg font-bold text-blue-900">
-                    {((currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1) * settings.price).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+                    {((currentPaper ? Math.max(1, currentPaper.content.split('<!--PAGE_BREAK-->').length) : 1) * settings.price).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
                   </p>
                 </div>
                 
