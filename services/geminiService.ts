@@ -63,7 +63,7 @@ export const generatePaperPipeline = async (
   request: PaperRequest,
   onProgress: (status: string) => void
 ): Promise<string> => {
-  const modelId = "gemini-3-flash-preview"; 
+  const modelId = "gemini-3.1-pro-preview"; 
   let finalHtml = "";
 
   // 1. Calcular estrutura baseada no número de páginas
