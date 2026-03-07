@@ -2,7 +2,8 @@ import { GoogleGenAI } from "@google/genai";
 import { PaperRequest } from "../types";
 
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY || "";
+  // Try multiple ways to get the API key to ensure it works across different hosting environments
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
   if (!apiKey) {
     throw new Error("A chave da API do Gemini não está configurada. Por favor, adicione a variável de ambiente GEMINI_API_KEY no Netlify.");
   }
