@@ -38,8 +38,6 @@ export interface Order {
   status: OrderStatus;
   amount: number;
   proofUrl?: string; // Mock URL for proof image
-  paperContent?: string;
-  paperRequest?: PaperRequest;
 }
 
 export interface BankAccount {
