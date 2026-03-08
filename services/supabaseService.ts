@@ -1,6 +1,92 @@
 import { supabase } from '../lib/supabase';
-import { Order, SystemSettings, User } from '../types';
+import { Order, SystemSettings, User, GeneratedPaper } from '../types';
 
+// Auth & Profiles
+export const signUp = async (email: string, password: string, name: string): Promise<User | null> => {
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (authError || !authData.user) {
+    console.error('Error signing up:', authError);
+    return null;
+  }
+
+  const role = email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
+  
+  const { data: profileData, error: profileError } = await supabase.from('profiles').insert([
+    { id: authData.user.id, name, email, role, balance: 500 }
+  ]).select().single();
+
+  if (profileError) {
+    console.error('Error creating profile:', profileError);
+    return null;
+  }
+
+  return profileData as User;
+};
+
+export const signIn = async (email: string, password: string): Promise<User | null> => {
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (authError || !authData.user) {
+    console.error('Error signing in:', authError);
+    return null;
+  }
+
+  const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', authData.user.id).single();
+
+  if (profileError) {
+    console.error('Error fetching profile:', profileError);
+    return null;
+  }
+
+  return profileData as User;
+};
+
+export const signOut = async () => {
+  await supabase.auth.signOut();
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  return profileData as User | null;
+};
+
+// Papers
+export const savePaper = async (userId: string, paper: GeneratedPaper, isUnlocked: boolean): Promise<boolean> => {
+  const { error } = await supabase.from('papers').insert([{
+    user_id: userId,
+    title: paper.title,
+    content: paper.content,
+    request: paper.request,
+    is_unlocked: isUnlocked
+  }]);
+
+  if (error) {
+    console.error('Error saving paper:', error);
+    return false;
+  }
+  return true;
+};
+
+export const fetchUserPapers = async (userId: string): Promise<any[]> => {
+  const { data, error } = await supabase.from('papers').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching papers:', error);
+    return [];
+  }
+  return data;
+};
+
+// Orders
 export const fetchOrders = async (): Promise<Order[]> => {
   const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
   if (error) {
@@ -10,7 +96,7 @@ export const fetchOrders = async (): Promise<Order[]> => {
   return data as Order[];
 };
 
-export const createOrder = async (order: Omit<Order, 'id'>): Promise<Order | null> => {
+export const createOrder = async (order: Omit<Order, 'id'> & { user_id: string }): Promise<Order | null> => {
   const { data, error } = await supabase.from('orders').insert([order]).select().single();
   if (error) {
     console.error('Error creating order:', error);
@@ -28,6 +114,7 @@ export const updateOrderStatus = async (id: string, status: string): Promise<boo
   return true;
 };
 
+// Settings
 export const fetchSettings = async (): Promise<SystemSettings | null> => {
   const { data, error } = await supabase.from('settings').select('*').single();
   if (error) {

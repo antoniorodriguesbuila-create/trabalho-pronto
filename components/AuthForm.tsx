@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Mail, Lock, User as UserIcon, ArrowRight, Phone } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { signIn, signUp } from '../services/supabaseService';
 
 interface AuthFormProps {
   onLogin: (user: User) => void;
@@ -23,63 +23,28 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
     setError('');
 
     try {
+      let user: User | null = null;
+      
       if (isLogin) {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-
-        if (signInError) {
-          if (signInError.message.includes('Email not confirmed')) {
-            throw new Error('Por favor, confirme o seu email antes de fazer login. Verifique a sua caixa de entrada.');
-          }
-          throw signInError;
-        }
-
-        if (data.user) {
-          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-          const user: User = {
-            id: data.user.id,
-            name: data.user.user_metadata?.name || 'Utilizador',
-            email: data.user.email || '',
-            role: role,
-            balance: 500 // Mock balance
-          };
-          onLogin(user);
+        user = await signIn(formData.email, formData.password);
+        if (!user) {
+          setError('Email ou senha incorretos.');
+          setIsLoading(false);
+          return;
         }
       } else {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              name: formData.name,
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-
-        if (data.user && data.session) {
-          // Logged in automatically (email confirmation disabled)
-          const role = data.user.email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
-          const user: User = {
-            id: data.user.id,
-            name: formData.name,
-            email: data.user.email || '',
-            role: role,
-            balance: 500 // Mock balance
-          };
-          onLogin(user);
-        } else if (data.user && !data.session) {
-          // Email confirmation required
-          setError('Conta criada com sucesso! Por favor, verifique o seu email para confirmar a conta antes de fazer login.');
-          setIsLogin(true); // Switch to login view
+        user = await signUp(formData.email, formData.password, formData.name);
+        if (!user) {
+          setError('Erro ao criar conta. O email pode já estar em uso.');
+          setIsLoading(false);
+          return;
         }
       }
+      
+      onLogin(user);
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.message || 'Ocorreu um erro na autenticação.');
+      setError('Ocorreu um erro na autenticação. Verifique os seus dados e tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -146,6 +111,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
                 <input
                   required
                   type="password"
+                  minLength={6}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                   value={formData.password}

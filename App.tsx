@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PaperRequest, GeneratedPaper, Order, OrderStatus, User, SystemSettings } from './types';
 import { generatePaperPipeline } from './services/geminiService';
-import { fetchOrders, createOrder, updateOrderStatus, fetchSettings, updateSettings, uploadProof } from './services/supabaseService';
+import { fetchOrders, createOrder, updateOrderStatus, fetchSettings, updateSettings, uploadProof, signOut, getCurrentUser, savePaper } from './services/supabaseService';
 import GeneratorForm from './components/GeneratorForm';
 import PaperPreview from './components/PaperPreview';
 import AdminDashboard from './components/AdminDashboard';
@@ -66,6 +66,11 @@ export default function App() {
   // Efeitos de Persistência
   useEffect(() => {
     const loadData = async () => {
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+      }
+
       const fetchedOrders = await fetchOrders();
       setOrders(fetchedOrders);
       
@@ -121,7 +126,8 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     setUser(null);
     setView('home'); 
     // Nota: Não limpamos o currentPaper aqui para permitir que o utilizador
@@ -138,13 +144,19 @@ export default function App() {
     setLoadingStatus('Iniciando pipeline...');
     try {
       const content = await generatePaperPipeline(request, (status) => setLoadingStatus(status));
-      setCurrentPaper({
+      const newPaper = {
         title: request.theme,
         content: content,
         request: request,
         timestamp: new Date()
-      });
+      };
+      
+      setCurrentPaper(newPaper);
       setIsUnlocked(false); // Novo trabalho começa bloqueado
+      
+      // Save to Supabase
+      await savePaper(user.id, newPaper, false);
+      
       setView('preview');
     } catch (error) {
       console.error(error);
@@ -180,8 +192,9 @@ export default function App() {
     // Cria um novo pedido pendente com o preço calculado por página (total de páginas geradas)
     const calculatedAmount = settings.price * (currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1);
     
-    const newOrderData: Omit<Order, 'id'> = {
+    const newOrderData: Omit<Order, 'id'> & { user_id: string } = {
       user: user.name,
+      user_id: user.id,
       theme: currentPaper?.title || 'Sem título',
       date: new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric' }),
       status: 'Pendente',
