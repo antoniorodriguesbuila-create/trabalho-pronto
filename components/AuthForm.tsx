@@ -8,7 +8,7 @@ interface AuthFormProps {
 }
 
 const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
-  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'update_password'>('login');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,6 +18,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Check if we are in a password recovery flow
+  React.useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('type=recovery')) {
+      setMode('update_password');
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -25,6 +33,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
     setSuccessMsg('');
 
     try {
+      if (mode === 'update_password') {
+        const { updatePassword } = await import('../services/supabaseService');
+        const { success, error: updateError } = await updatePassword(formData.password);
+        if (success) {
+          setSuccessMsg('Senha atualizada com sucesso! Pode fazer login agora.');
+          setMode('login');
+          setFormData({ ...formData, password: '' });
+          // Clear hash from URL
+          window.history.replaceState(null, '', window.location.pathname);
+        } else {
+          setError(updateError || 'Erro ao atualizar a senha.');
+        }
+        setIsLoading(false);
+        return;
+      }
+
       if (mode === 'reset') {
         const { success, error: resetError } = await resetPassword(formData.email);
         if (success) {
@@ -70,10 +94,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
         {/* Header */}
         <div className="bg-slate-900 px-8 py-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-1">
-            {mode === 'login' ? 'Bem-vindo de volta' : mode === 'register' ? 'Crie a sua conta' : 'Recuperar Senha'}
+            {mode === 'login' ? 'Bem-vindo de volta' : mode === 'register' ? 'Crie a sua conta' : mode === 'reset' ? 'Recuperar Senha' : 'Nova Senha'}
           </h2>
           <p className="text-slate-400 text-sm">
-            {mode === 'login' ? 'Aceda aos seus trabalhos académicos' : mode === 'register' ? 'Comece a gerar trabalhos humanizados' : 'Insira o seu email para receber um link de recuperação'}
+            {mode === 'login' ? 'Aceda aos seus trabalhos académicos' : mode === 'register' ? 'Comece a gerar trabalhos humanizados' : mode === 'reset' ? 'Insira o seu email para receber um link de recuperação' : 'Defina a sua nova senha de acesso'}
           </p>
         </div>
 
@@ -99,27 +123,31 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700 ml-1">Email</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Mail size={18} />
+            {mode !== 'update_password' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 ml-1">Email</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Mail size={18} />
+                  </div>
+                  <input
+                    required
+                    type="email"
+                    placeholder="exemplo@email.com"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
                 </div>
-                <input
-                  required
-                  type="email"
-                  placeholder="exemplo@email.com"
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
               </div>
-            </div>
+            )}
 
             {mode !== 'reset' && (
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-slate-700 ml-1">Senha</label>
+                  <label className="text-sm font-medium text-slate-700 ml-1">
+                    {mode === 'update_password' ? 'Nova Senha' : 'Senha'}
+                  </label>
                   {mode === 'login' && (
                     <button 
                       type="button" 
@@ -170,17 +198,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
                 'Processando...'
               ) : (
                 <>
-                  {mode === 'login' ? 'Entrar' : mode === 'register' ? 'Registar' : 'Enviar Link'} 
-                  {mode === 'reset' ? <KeyRound size={18} /> : <ArrowRight size={18} />}
+                  {mode === 'login' ? 'Entrar' : mode === 'register' ? 'Registar' : mode === 'reset' ? 'Enviar Link' : 'Guardar Nova Senha'} 
+                  {(mode === 'reset' || mode === 'update_password') ? <KeyRound size={18} /> : <ArrowRight size={18} />}
                 </>
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            {mode === 'reset' ? (
+            {(mode === 'reset' || mode === 'update_password') ? (
               <button
-                onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
+                type="button"
+                onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); window.history.replaceState(null, '', window.location.pathname); }}
                 className="text-blue-600 font-bold hover:underline text-sm"
               >
                 Voltar ao Login

@@ -61,6 +61,19 @@ export const resetPassword = async (email: string): Promise<{ success: boolean; 
   return { success: true };
 };
 
+export const updatePassword = async (password: string): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase.auth.updateUser({
+    password: password
+  });
+  
+  if (error) {
+    console.error('Error updating password:', error);
+    return { success: false, error: error.message };
+  }
+  
+  return { success: true };
+};
+
 export const signOut = async () => {
   await supabase.auth.signOut();
 };
