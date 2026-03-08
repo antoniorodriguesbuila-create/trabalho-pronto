@@ -2,9 +2,16 @@ import { GoogleGenAI } from "@google/genai";
 import { PaperRequest } from "../types";
 
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY || "";
+  // ATENÇÃO: Colocar a chave diretamente aqui não é seguro para produção, 
+  // mas se quiser testar sem depender de variáveis de ambiente no Netlify, 
+  // cole a sua chave do Google Gemini Studio entre as aspas abaixo:
+  const HARDCODED_KEY = ""; 
+
+  // Try multiple ways to get the API key to ensure it works across different hosting environments
+  const apiKey = HARDCODED_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
+  
   if (!apiKey) {
-    throw new Error("A chave da API do Gemini não está configurada. Por favor, adicione a variável de ambiente GEMINI_API_KEY no Netlify.");
+    throw new Error("A chave da API do Gemini não está configurada. Por favor, cole a sua chave no ficheiro geminiService.ts ou configure a variável GEMINI_API_KEY.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -63,7 +70,7 @@ export const generatePaperPipeline = async (
   request: PaperRequest,
   onProgress: (status: string) => void
 ): Promise<string> => {
-  const modelId = "gemini-3-flash-preview"; 
+  const modelId = "gemini-3.1-pro-preview"; 
   let finalHtml = "";
 
   // 1. Calcular estrutura baseada no número de páginas

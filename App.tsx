@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PaperRequest, GeneratedPaper, Order, OrderStatus, User, SystemSettings } from './types';
 import { generatePaperPipeline } from './services/geminiService';
+import { fetchOrders, createOrder, updateOrderStatus, fetchSettings, updateSettings, uploadProof } from './services/supabaseService';
 import GeneratorForm from './components/GeneratorForm';
 import PaperPreview from './components/PaperPreview';
 import AdminDashboard from './components/AdminDashboard';
@@ -57,23 +58,25 @@ export default function App() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   
   // Admin State com Persistência
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('tp_orders');
-    return saved ? JSON.parse(saved) : MOCK_ORDERS;
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
 
   // Configurações do Sistema com Persistência
-  const [settings, setSettings] = useState<SystemSettings>(() => {
-    const saved = localStorage.getItem('tp_settings');
-    // Migration logic for old settings format if necessary
-    const parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-    if (!parsed.bankAccounts) {
-        return DEFAULT_SETTINGS;
-    }
-    return parsed;
-  });
+  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
 
   // Efeitos de Persistência
+  useEffect(() => {
+    const loadData = async () => {
+      const fetchedOrders = await fetchOrders();
+      setOrders(fetchedOrders);
+      
+      const fetchedSettings = await fetchSettings();
+      if (fetchedSettings) {
+        setSettings(fetchedSettings);
+      }
+    };
+    loadData();
+  }, []);
+
   useEffect(() => {
     if (user) localStorage.setItem('tp_user', JSON.stringify(user));
     else localStorage.removeItem('tp_user');
@@ -87,14 +90,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('tp_isUnlocked', String(isUnlocked));
   }, [isUnlocked]);
-
-  useEffect(() => {
-    localStorage.setItem('tp_orders', JSON.stringify(orders));
-  }, [orders]);
-
-  useEffect(() => {
-    localStorage.setItem('tp_settings', JSON.stringify(settings));
-  }, [settings]);
 
   // Efeito Mágico: Desbloqueio Automático ao Aprovar Pedido
   // Verifica se existe um pedido APROVADO que corresponda ao utilizador e ao tema atual
@@ -166,7 +161,7 @@ export default function App() {
     }
   };
 
-  const handlePaymentSubmit = () => {
+  const handlePaymentSubmit = async () => {
     if (!user) return;
     
     if (!proofFile) {
@@ -176,14 +171,16 @@ export default function App() {
 
     setShowPaymentModal(false);
     
-    // Cria um URL temporário para o ficheiro para simular o upload
-    const proofUrl = URL.createObjectURL(proofFile);
+    const proofUrl = await uploadProof(proofFile);
+    if (!proofUrl) {
+      alert("Erro ao fazer upload do comprovativo. Tente novamente.");
+      return;
+    }
 
     // Cria um novo pedido pendente com o preço calculado por página (total de páginas geradas)
     const calculatedAmount = settings.price * (currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1);
     
-    const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newOrderData: Omit<Order, 'id'> = {
       user: user.name,
       theme: currentPaper?.title || 'Sem título',
       date: new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -192,19 +189,34 @@ export default function App() {
       proofUrl: proofUrl
     };
     
-    setOrders(prev => [newOrder, ...prev]);
-    setProofFile(null); // Limpar ficheiro após envio
-    alert('Comprovativo enviado! O estado do seu pedido é agora "Pendente". Aguarde aprovação do administrador.');
+    const createdOrder = await createOrder(newOrderData);
+    if (createdOrder) {
+      setOrders(prev => [createdOrder, ...prev]);
+      setProofFile(null); // Limpar ficheiro após envio
+      alert('Comprovativo enviado! O estado do seu pedido é agora "Pendente". Aguarde aprovação do administrador.');
+    } else {
+      alert("Erro ao criar pedido. Tente novamente.");
+    }
   };
 
   // Admin Actions
-  const handleUpdateStatus = (id: string, status: OrderStatus) => {
-    setOrders(prevOrders => prevOrders.map(o => o.id === id ? { ...o, status } : o));
+  const handleUpdateStatus = async (id: string, status: OrderStatus) => {
+    const success = await updateOrderStatus(id, status);
+    if (success) {
+      setOrders(prevOrders => prevOrders.map(o => o.id === id ? { ...o, status } : o));
+    } else {
+      alert("Erro ao atualizar o estado do pedido.");
+    }
     // A lógica de desbloqueio agora é tratada pelo useEffect
   };
 
-  const handleUpdateSettings = (newSettings: SystemSettings) => {
-    setSettings(newSettings);
+  const handleUpdateSettings = async (newSettings: SystemSettings) => {
+    const success = await updateSettings(newSettings);
+    if (success) {
+      setSettings(newSettings);
+    } else {
+      alert("Erro ao atualizar as configurações.");
+    }
   };
 
   return (
