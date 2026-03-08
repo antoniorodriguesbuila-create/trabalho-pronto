@@ -8,7 +8,12 @@ interface AuthFormProps {
 }
 
 const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
-  const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'update_password'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'update_password'>(() => {
+    if (typeof window !== 'undefined' && window.location.href.includes('type=recovery')) {
+      return 'update_password';
+    }
+    return 'login';
+  });
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,14 +22,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  // Check if we are in a password recovery flow
-  React.useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
-      setMode('update_password');
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

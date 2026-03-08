@@ -33,7 +33,12 @@ type View = 'home' | 'preview' | 'admin' | 'login';
 
 export default function App() {
   // Inicialização de estado com persistência (LocalStorage) para suportar refresh e troca de contas no demo
-  const [view, setView] = useState<View>('home');
+  const [view, setView] = useState<View>(() => {
+    if (typeof window !== 'undefined' && window.location.href.includes('type=recovery')) {
+      return 'login';
+    }
+    return 'home';
+  });
   
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('tp_user');
