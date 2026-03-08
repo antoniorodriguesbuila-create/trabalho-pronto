@@ -158,9 +158,9 @@ export default function App() {
       await savePaper(user.id, newPaper, false);
       
       setView('preview');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Erro ao gerar o trabalho. Verifique a chave de API.');
+      alert(error.message || 'Erro ao gerar o trabalho. Verifique a chave de API.');
     } finally {
       setLoading(false);
       setLoadingStatus('');
