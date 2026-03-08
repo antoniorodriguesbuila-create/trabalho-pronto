@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Mail, Lock, User as UserIcon, ArrowRight, Phone } from 'lucide-react';
-import { signIn, signUp } from '../services/supabaseService';
+import { Mail, Lock, User as UserIcon, ArrowRight, Phone, KeyRound } from 'lucide-react';
+import { signIn, signUp, resetPassword } from '../services/supabaseService';
 
 interface AuthFormProps {
   onLogin: (user: User) => void;
 }
 
 const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -16,16 +16,30 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccessMsg('');
 
     try {
+      if (mode === 'reset') {
+        const { success, error: resetError } = await resetPassword(formData.email);
+        if (success) {
+          setSuccessMsg('Enviámos um link de recuperação para o seu email.');
+          setFormData({ ...formData, password: '' });
+        } else {
+          setError(resetError || 'Erro ao enviar email de recuperação.');
+        }
+        setIsLoading(false);
+        return;
+      }
+
       let user: User | null = null;
       
-      if (isLogin) {
+      if (mode === 'login') {
         user = await signIn(formData.email, formData.password);
         if (!user) {
           setError('Email ou senha incorretos.');
@@ -56,17 +70,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
         {/* Header */}
         <div className="bg-slate-900 px-8 py-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-1">
-            {isLogin ? 'Bem-vindo de volta' : 'Crie a sua conta'}
+            {mode === 'login' ? 'Bem-vindo de volta' : mode === 'register' ? 'Crie a sua conta' : 'Recuperar Senha'}
           </h2>
           <p className="text-slate-400 text-sm">
-            {isLogin ? 'Aceda aos seus trabalhos académicos' : 'Comece a gerar trabalhos humanizados'}
+            {mode === 'login' ? 'Aceda aos seus trabalhos académicos' : mode === 'register' ? 'Comece a gerar trabalhos humanizados' : 'Insira o seu email para receber um link de recuperação'}
           </p>
         </div>
 
         {/* Form */}
         <div className="p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
-            {!isLogin && (
+            {mode === 'register' && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700 ml-1">Nome Completo</label>
                 <div className="relative">
@@ -102,27 +116,46 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700 ml-1">Senha</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Lock size={18} />
+            {mode !== 'reset' && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-slate-700 ml-1">Senha</label>
+                  {mode === 'login' && (
+                    <button 
+                      type="button" 
+                      onClick={() => { setMode('reset'); setError(''); setSuccessMsg(''); }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  )}
                 </div>
-                <input
-                  required
-                  type="password"
-                  minLength={6}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    required
+                    type="password"
+                    minLength={6}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {error && (
                 <div className="text-red-600 text-sm text-center font-medium bg-red-50 p-2 rounded">
                     {error}
+                </div>
+            )}
+            
+            {successMsg && (
+                <div className="text-emerald-600 text-sm text-center font-medium bg-emerald-50 p-2 rounded">
+                    {successMsg}
                 </div>
             )}
 
@@ -137,22 +170,32 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
                 'Processando...'
               ) : (
                 <>
-                  {isLogin ? 'Entrar' : 'Registar'} <ArrowRight size={18} />
+                  {mode === 'login' ? 'Entrar' : mode === 'register' ? 'Registar' : 'Enviar Link'} 
+                  {mode === 'reset' ? <KeyRound size={18} /> : <ArrowRight size={18} />}
                 </>
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600">
-              {isLogin ? 'Não tem uma conta?' : 'Já tem uma conta?'}
+            {mode === 'reset' ? (
               <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="ml-1 text-blue-600 font-semibold hover:underline focus:outline-none"
+                onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
+                className="text-blue-600 font-bold hover:underline text-sm"
               >
-                {isLogin ? 'Criar agora' : 'Fazer login'}
+                Voltar ao Login
               </button>
-            </p>
+            ) : (
+              <p className="text-sm text-slate-600">
+                {mode === 'login' ? 'Não tem uma conta?' : 'Já tem uma conta?'}
+                <button
+                  onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setSuccessMsg(''); }}
+                  className="ml-1 text-blue-600 font-semibold hover:underline focus:outline-none"
+                >
+                  {mode === 'login' ? 'Criar agora' : 'Fazer login'}
+                </button>
+              </p>
+            )}
           </div>
 
           <div className="mt-6 pt-6 border-t border-slate-100 text-center">
