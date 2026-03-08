@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PaperRequest, GeneratedPaper, Order, OrderStatus, User, SystemSettings } from './types';
 import { generatePaperPipeline } from './services/geminiService';
-import { fetchOrders, createOrder, updateOrderStatus, fetchSettings, updateSettings, uploadProof, signOut, getCurrentUser, savePaper } from './services/supabaseService';
+import { fetchOrders, createOrder, updateOrderStatus, fetchSettings, updateSettings, uploadProof, signOut, getCurrentUser, savePaper, unlockPaper } from './services/supabaseService';
 import GeneratorForm from './components/GeneratorForm';
 import PaperPreview from './components/PaperPreview';
 import AdminDashboard from './components/AdminDashboard';
@@ -217,6 +217,14 @@ export default function App() {
     const success = await updateOrderStatus(id, status);
     if (success) {
       setOrders(prevOrders => prevOrders.map(o => o.id === id ? { ...o, status } : o));
+      
+      // If approved, unlock the paper in the database
+      if (status === 'Aprovado') {
+        const order = orders.find(o => o.id === id);
+        if (order && order.user_id) {
+          await unlockPaper(order.theme, order.user_id);
+        }
+      }
     } else {
       alert("Erro ao atualizar o estado do pedido.");
     }

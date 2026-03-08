@@ -33,13 +33,12 @@ export interface GeneratedPaper {
 export interface Order {
   id: string;
   user: string;
+  user_id?: string;
   theme: string;
   date: string;
   status: OrderStatus;
   amount: number;
   proofUrl?: string; // Mock URL for proof image
-  paperContent?: string;
-  paperRequest?: PaperRequest;
 }
 
 export interface BankAccount {

@@ -86,6 +86,15 @@ export const fetchUserPapers = async (userId: string): Promise<any[]> => {
   return data;
 };
 
+export const unlockPaper = async (title: string, userId: string): Promise<boolean> => {
+  const { error } = await supabase.from('papers').update({ is_unlocked: true }).eq('title', title).eq('user_id', userId);
+  if (error) {
+    console.error('Error unlocking paper:', error);
+    return false;
+  }
+  return true;
+};
+
 // Orders
 export const fetchOrders = async (): Promise<Order[]> => {
   const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
