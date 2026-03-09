@@ -68,9 +68,9 @@ export const generatePaperPipeline = async (
   let finalHtml = "";
 
   // 1. Calcular estrutura baseada no número de páginas
-  // Reservamos 1 pág para Intro, 1 para Conclusão, 1 para Referências.
+  // Reservamos 1 pág para Intro, 1 para Metodologia, 1 para Objetivos, 1 para Conclusão, 1 para Referências.
   // O resto são capítulos de desenvolvimento.
-  const corePages = Math.max(request.pages - 3, 2); 
+  const corePages = Math.max(request.pages - 5, 2); 
   
   onProgress(`Planeando estrutura para ${request.pages} páginas...`);
 
@@ -81,7 +81,7 @@ export const generatePaperPipeline = async (
     Nível académico: ${request.level}. A profundidade e complexidade dos capítulos devem estar adequadas a este nível.
     
     Liste EXATAMENTE ${corePages} títulos de capítulos para o DESENVOLVIMENTO do trabalho.
-    NÃO inclua "Introdução", "Conclusão" ou "Referências". Apenas o miolo do trabalho.
+    NÃO inclua "Introdução", "Metodologia", "Objetivos", "Conclusão" ou "Referências". Apenas o miolo do trabalho.
     Os títulos devem ser académicos e progressivos.
     
     Retorne APENAS a lista de títulos separados por ponto e vírgula (;).
@@ -104,6 +104,8 @@ export const generatePaperPipeline = async (
 
   // We will store the generated HTML for each section
   let introHtml = "";
+  let objHtml = "";
+  let metHtml = "";
   let chaptersHtml: string[] = [];
   let concHtml = "";
   let refHtml = "";
@@ -119,19 +121,52 @@ export const generatePaperPipeline = async (
     - O texto deve ocupar APENAS UMA PÁGINA (aprox. 350 a 400 palavras).
     - Não seja demasiado extenso, mas preencha visualmente a página.
     - Comece DIRETAMENTE com <h2>1. Introdução</h2>.
-    - Fale sobre a contextualização, problema, justificativa e objetivos.
+    - Fale sobre a contextualização e justificativa.
     - Use <p> para parágrafos. Não use markdown, apenas HTML.
     - Adicione <!--PAGE_BREAK--> no final.
   `;
   const introRes = await generateWithRetry(modelId, introPrompt);
   introHtml = cleanText(introRes.text || "");
 
+  // -- Passo 2.1: Gerar Objetivos --
+  onProgress("Escrevendo Objetivos...");
+  const objPrompt = `
+    Escreva os OBJETIVOS (Geral e Específicos) para um trabalho académico sobre "${request.theme}".
+    Nível académico: ${request.level}. Estilo: ${request.style}.
+    
+    Diretrizes:
+    - O texto deve ocupar APENAS UMA PÁGINA (aprox. 200 a 300 palavras).
+    - Comece DIRETAMENTE com <h2>2. Objetivos</h2>.
+    - Inclua um subtítulo <h3>2.1 Objetivo Geral</h3> e defina um objetivo claro e abrangente.
+    - Inclua um subtítulo <h3>2.2 Objetivos Específicos</h3> e liste 3 a 5 objetivos em formato de tópicos (<ul><li>).
+    - Use <p> para parágrafos. Não use markdown, apenas HTML.
+    - Adicione <!--PAGE_BREAK--> no final.
+  `;
+  const objRes = await generateWithRetry(modelId, objPrompt);
+  objHtml = cleanText(objRes.text || "");
+
+  // -- Passo 2.2: Gerar Metodologia --
+  onProgress("Escrevendo Metodologia...");
+  const metPrompt = `
+    Escreva a METODOLOGIA para um trabalho académico sobre "${request.theme}".
+    Nível académico: ${request.level}. Estilo: ${request.style}.
+    
+    Diretrizes:
+    - O texto deve ocupar APENAS UMA PÁGINA (aprox. 300 a 400 palavras).
+    - Comece DIRETAMENTE com <h2>3. Metodologia</h2>.
+    - Descreva o tipo de pesquisa (bibliográfica, documental, estudo de caso, etc.), os métodos de abordagem e os procedimentos de coleta de dados apropriados para o tema.
+    - Use <p> para parágrafos. Não use markdown, apenas HTML.
+    - Adicione <!--PAGE_BREAK--> no final.
+  `;
+  const metRes = await generateWithRetry(modelId, metPrompt);
+  metHtml = cleanText(metRes.text || "");
+
   // -- Passo 3: Loop de Desenvolvimento (1 Capítulo = 1 Página) --
   for (let i = 0; i < chapters.length; i++) {
     const chapterTitle = chapters[i];
-    const chapterNum = i + 2; // Começa no 2 porque Intro é 1
+    const chapterNum = i + 4; // Começa no 4 porque Intro é 1, Obj é 2, Met é 3
 
-    onProgress(`Escrevendo Cap. ${chapterNum}/${chapters.length + 3}: ${chapterTitle}...`);
+    onProgress(`Escrevendo Cap. ${chapterNum}/${chapters.length + 5}: ${chapterTitle}...`);
     
     const formattedChap = chapterTitle.charAt(0).toUpperCase() + chapterTitle.slice(1).toLowerCase();
     const chapterPrompt = `
@@ -222,6 +257,24 @@ export const generatePaperPipeline = async (
   let introWords = countWords(introHtml);
   currentPage += Math.max(1, Math.ceil(introWords / WORDS_PER_PAGE));
 
+  summaryHtml += `
+        <tr>
+          <td style="text-align: left; border: none; padding: 5px 0;"><b>2. Objetivos</b></td>
+          <td style="text-align: right; border: none; padding: 5px 0;">${currentPage}</td>
+        </tr>
+  `;
+  let objWords = countWords(objHtml);
+  currentPage += Math.max(1, Math.ceil(objWords / WORDS_PER_PAGE));
+
+  summaryHtml += `
+        <tr>
+          <td style="text-align: left; border: none; padding: 5px 0;"><b>3. Metodologia</b></td>
+          <td style="text-align: right; border: none; padding: 5px 0;">${currentPage}</td>
+        </tr>
+  `;
+  let metWords = countWords(metHtml);
+  currentPage += Math.max(1, Math.ceil(metWords / WORDS_PER_PAGE));
+
   let currentChapterWords = 0;
   chapters.forEach((chap, index) => {
     const formattedChap = chap.charAt(0).toUpperCase() + chap.slice(1).toLowerCase();
@@ -229,7 +282,7 @@ export const generatePaperPipeline = async (
     
     summaryHtml += `
         <tr>
-          <td style="text-align: left; border: none; padding: 5px 0;"><b>${index + 2}. ${formattedChap}</b></td>
+          <td style="text-align: left; border: none; padding: 5px 0;"><b>${index + 4}. ${formattedChap}</b></td>
           <td style="text-align: right; border: none; padding: 5px 0;">${chapterStartPage}</td>
         </tr>
     `;
@@ -259,7 +312,7 @@ export const generatePaperPipeline = async (
   `;
 
   // Combine everything with PAGE_BREAK markers so the Word export logic can split them properly
-  finalHtml = summaryHtml + "\n<!--PAGE_BREAK-->\n" + introHtml + "\n<!--PAGE_BREAK-->\n" + chaptersHtml.join("\n<!--PAGE_BREAK-->\n") + "\n<!--PAGE_BREAK-->\n" + concHtml + "\n<!--PAGE_BREAK-->\n" + refHtml;
+  finalHtml = summaryHtml + "\n<!--PAGE_BREAK-->\n" + introHtml + "\n<!--PAGE_BREAK-->\n" + objHtml + "\n<!--PAGE_BREAK-->\n" + metHtml + "\n<!--PAGE_BREAK-->\n" + chaptersHtml.join("\n<!--PAGE_BREAK-->\n") + "\n<!--PAGE_BREAK-->\n" + concHtml + "\n<!--PAGE_BREAK-->\n" + refHtml;
 
   // Remove qualquer menção a "ABNT" do texto final gerado
   finalHtml = finalHtml.replace(/ABNT/gi, '');
