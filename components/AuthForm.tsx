@@ -68,12 +68,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
           return;
         }
       } else {
-        user = await signUp(formData.email, formData.password, formData.name);
-        if (!user) {
-          setError('Erro ao criar conta. O email pode já estar em uso.');
+        const signUpResult = await signUp(formData.email, formData.password, formData.name);
+        if (signUpResult.requireEmailConfirmation) {
+          setSuccessMsg('Conta criada com sucesso! Por favor, verifique o seu email para confirmar o registo antes de fazer login.');
+          setMode('login');
+          setFormData({ ...formData, password: '' });
+          setIsLoading(false);
+          return;
+        } else if (signUpResult.error) {
+          setError(signUpResult.error);
+          setIsLoading(false);
+          return;
+        } else if (!signUpResult.user) {
+          setError('Erro ao criar conta. Tente novamente.');
           setIsLoading(false);
           return;
         }
+        user = signUpResult.user;
       }
       
       onLogin(user);

@@ -2,15 +2,24 @@ import { supabase } from '../lib/supabase';
 import { Order, SystemSettings, User, GeneratedPaper } from '../types';
 
 // Auth & Profiles
-export const signUp = async (email: string, password: string, name: string): Promise<User | null> => {
+export const signUp = async (email: string, password: string, name: string): Promise<{ user: User | null; error?: string; requireEmailConfirmation?: boolean }> => {
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
   });
 
-  if (authError || !authData.user) {
+  if (authError) {
     console.error('Error signing up:', authError);
-    return null;
+    return { user: null, error: authError.message };
+  }
+
+  if (!authData.user) {
+    return { user: null, error: 'Erro desconhecido ao criar conta.' };
+  }
+
+  // Check if email confirmation is required
+  if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
+    return { user: null, error: 'Este email já está em uso.' };
   }
 
   const role = email === 'bu.ila@hotmail.com' ? 'admin' : 'client';
@@ -21,10 +30,13 @@ export const signUp = async (email: string, password: string, name: string): Pro
 
   if (profileError) {
     console.error('Error creating profile:', profileError);
-    return null;
+    // If the profile creation fails, it might be because the user already exists
+    // or because RLS policies are preventing it (e.g., if email confirmation is required)
+    // We'll assume email confirmation is required if the user was created but profile wasn't
+    return { user: null, requireEmailConfirmation: true };
   }
 
-  return profileData as User;
+  return { user: profileData as User };
 };
 
 export const signIn = async (email: string, password: string): Promise<User | null> => {
