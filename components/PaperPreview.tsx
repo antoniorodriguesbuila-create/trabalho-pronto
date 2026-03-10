@@ -131,23 +131,18 @@ const PaperPreview: React.FC<PaperPreviewProps> = ({ paper, isUnlocked, onReques
     // Processar o conteúdo para o Word
     let formattedContent = paper.content;
     
-    // 1. Remover quebras de página existentes para resetar a formatação
-    formattedContent = formattedContent.replace(/<!--PAGE_BREAK-->/g, '<br><br>');
-    
-    // 2. Inserir quebras de página ANTES das secções principais para isolá-las
     const pageBreakHTML = '<br clear="all" style="page-break-before:always; mso-break-type:page-break" />';
     
-    // Introdução
-    formattedContent = formattedContent.replace(/(<h2[^>]*>\s*(?:1\.\s*)?Introdução\s*<\/h2>)/i, `${pageBreakHTML}$1`);
-    
-    // Primeiro Capítulo de Desenvolvimento (Sempre começa com 2.)
-    formattedContent = formattedContent.replace(/(<h2[^>]*>\s*2\.\s*[^<]+<\/h2>)/i, `${pageBreakHTML}$1`);
-    
-    // Conclusão
-    formattedContent = formattedContent.replace(/(<h2[^>]*>\s*Conclusão\s*<\/h2>)/i, `${pageBreakHTML}$1`);
-    
-    // Referências Bibliográficas
-    formattedContent = formattedContent.replace(/(<h2[^>]*>\s*Referências bibliográficas\s*<\/h2>)/i, `${pageBreakHTML}$1`);
+    if (formattedContent.includes('<!--PAGE_BREAK-->')) {
+      // Usar os marcadores exatos inseridos pelo gerador
+      formattedContent = formattedContent.replace(/<!--PAGE_BREAK-->/g, pageBreakHTML);
+    } else {
+      // Fallback para trabalhos antigos sem marcadores
+      formattedContent = formattedContent.replace(/(<h2[^>]*>\s*(?:1\.\s*)?Introdução\s*<\/h2>)/i, `${pageBreakHTML}$1`);
+      formattedContent = formattedContent.replace(/(<h2[^>]*>\s*2\.\s*[^<]+<\/h2>)/i, `${pageBreakHTML}$1`);
+      formattedContent = formattedContent.replace(/(<h2[^>]*>\s*Conclusão\s*<\/h2>)/i, `${pageBreakHTML}$1`);
+      formattedContent = formattedContent.replace(/(<h2[^>]*>\s*Referências bibliográficas\s*<\/h2>)/i, `${pageBreakHTML}$1`);
+    }
     
     const sourceHTML = header + formattedContent + footer;
     

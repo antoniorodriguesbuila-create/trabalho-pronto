@@ -445,14 +445,6 @@ export default function App() {
             
             <div className="flex-grow overflow-y-auto custom-scrollbar">
               <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-6">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-sm text-blue-800 font-medium">Preço por página:</p>
-                  <p className="text-sm font-bold text-blue-900">{settings.price.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}</p>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm text-blue-800 font-medium">Total de páginas (inclui Sumário e Referências):</p>
-                  <p className="text-sm font-bold text-blue-900">{currentPaper ? currentPaper.content.split('<!--PAGE_BREAK-->').length : 1}</p>
-                </div>
                 <div className="border-t border-blue-200 pt-2 mb-4 flex justify-between items-center">
                   <p className="text-sm text-blue-800 font-bold">Valor Total a Pagar:</p>
                   <p className="text-lg font-bold text-blue-900">
