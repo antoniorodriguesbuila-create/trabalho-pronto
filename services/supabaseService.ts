@@ -172,7 +172,11 @@ export const fetchSettings = async (): Promise<SystemSettings | null> => {
 };
 
 export const updateSettings = async (settings: SystemSettings): Promise<boolean> => {
-  const { error } = await supabase.from('settings').upsert([{ id: 1, ...settings }]);
+  const { error } = await supabase.from('settings').update({ 
+    price: settings.price, 
+    bankAccounts: settings.bankAccounts 
+  }).eq('id', 1);
+  
   if (error) {
     console.error('Error updating settings:', error);
     return false;
